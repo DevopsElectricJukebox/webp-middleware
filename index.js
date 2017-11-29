@@ -13,13 +13,15 @@ var urlParse = require('url').parse;
 var extenstions = [
   '.jpg',
   '.png',
-  '.tiff'
+  '.tiff',
+  '.gif'
 ];
 
 var supportedMimes = [
   'image/jpeg',
   'image/png',
-  'image/tiff'
+  'image/tiff',
+  'image/gif'
 ];
 
 var _tempCache = [];
