@@ -59,8 +59,7 @@ module.exports = function(basePath, options) {
    * handles each request and sends a webp image format if the client supports it
    */
   return function webpMiddleware(req, res, next) {
-    var url = req.url;
-    var pathname = urlParse(req.url).pathname;
+    var pathname = urlParse(req.originalUrl).pathname;
     var extpos = pathname.lastIndexOf('.');
     var ext = pathname.substr(extpos);
     var imgPath = path.join(basePath, req.originalUrl);
@@ -75,11 +74,18 @@ module.exports = function(basePath, options) {
         }
       })
       if (ext) {
-        req.url = url.replace('.webp', ext);
+        req.originalUrl = req.originalUrl.replace('.webp', ext);
+        req.servingWebp = true;
         webpMiddleware(req, res, next);
         return;
       }
       next();
+    }
+
+    if (options.serveWebp && !req.servingWebp) {
+      // serve original file if serve webp only is enabled
+      next();
+      return;
     }
 
     var mimeType = mime.lookup(req.originalUrl);
@@ -89,7 +95,6 @@ module.exports = function(basePath, options) {
     var hasMimetype = supportedMimes.indexOf(mimeType) !== -1;
     var acceptWebp = accept && accept.indexOf('image/webp') !== -1;
 
-    // just move on if mimetypes does not match
     if (!hasMimetype || !acceptWebp) {
       next();
       return;
@@ -98,7 +103,6 @@ module.exports = function(basePath, options) {
     var hash = crypto.createHash('md5').update(req.originalUrl).digest('hex');
     var cachePath = path.join(cacheDir, hash + '.webp');
     
-
     // try lookup cache for fast access
     if (_tempCache.indexOf(cachePath) !== -1) {
       send(res, cachePath, function(err) {
