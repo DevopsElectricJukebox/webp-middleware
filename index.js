@@ -8,6 +8,13 @@ var crypto = require('crypto');
 var path = require('path');
 var mkdirp = require('mkdirp');
 var vary = require('vary');
+var urlParse = require('url').parse;
+
+var extenstions = [
+  '.jpg',
+  '.png',
+  '.tiff'
+];
 
 var supportedMimes = [
   'image/jpeg',
@@ -50,6 +57,29 @@ module.exports = function(basePath, options) {
    * handles each request and sends a webp image format if the client supports it
    */
   return function webpMiddleware(req, res, next) {
+    var url = req.url;
+    var pathname = urlParse(req.url).pathname;
+    var extpos = pathname.lastIndexOf('.');
+    var ext = pathname.substr(extpos);
+    var imgPath = path.join(basePath, req.originalUrl);
+
+    if (options.serveWebp && ext == '.webp') {
+      ext = extenstions.find(ext => {
+        var potentialImgPath = imgPath.substr(0, imgPath.length - ext.length - 1) + ext;
+        try {
+          return fs.statSync(potentialImgPath) ? ext : false;
+        } catch (error) {
+          return false;
+        }
+      })
+      if (ext) {
+        req.url = url.replace('.webp', ext);
+        webpMiddleware(req, res, next);
+        return;
+      }
+      next();
+    }
+
     var mimeType = mime.lookup(req.originalUrl);
     var pathOptions = [];
     var accept = req.headers.accept;
@@ -65,7 +95,7 @@ module.exports = function(basePath, options) {
 
     var hash = crypto.createHash('md5').update(req.originalUrl).digest('hex');
     var cachePath = path.join(cacheDir, hash + '.webp');
-    var imgPath = path.join(basePath, req.originalUrl);
+    
 
     // try lookup cache for fast access
     if (_tempCache.indexOf(cachePath) !== -1) {
